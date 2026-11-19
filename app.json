@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Daily Runway",
+    "slug": "daily-runway",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "daily-runway",
+    "userInterfaceStyle": "light",
+    "web": { "output": "server" },
+    "plugins": ["expo-router"]
+  }
+}
