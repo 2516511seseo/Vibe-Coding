@@ -180,10 +180,10 @@ export default function InputScreen() {
                 <Slider
                   accessibilityLabel={`${CATEGORY_LABELS[category]} 예산 비율`}
                   accessibilityValue={{ min: 0, max: 100, now: priorities[category], text: `${priorities[category]}%` }}
-                  "aria-valuemin"={0}
-                  "aria-valuemax"={100}
-                  "aria-valuenow"={priorities[category]}
-                  "aria-valuetext"={`${priorities[category]}%`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={priorities[category]}
+                  aria-valuetext={`${priorities[category]}%`}
                   focusable={Platform.OS === "web" ? true : undefined}
                   minimumValue={0}
                   maximumValue={100}
