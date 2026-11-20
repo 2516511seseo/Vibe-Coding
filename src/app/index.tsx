@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, setPriorityPercent, validateForm } from "../lib/budget";
-import { loadActivePlan } from "../lib/storage";
 import { getSiteOrigin } from "../lib/seo";
-import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities, type SavedPlan } from "../lib/types";
+import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities } from "../lib/types";
 import type { Metadata } from "expo-router/server";
 
 const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
@@ -24,9 +23,6 @@ export default function InputScreen() {
   const [priorities, setPriorities] = useState<Priorities>(DEFAULT_PRIORITIES);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues | "priorities" | "fixedExpenses", string>>>({});
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseDraft[]>([]);
-  const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null);
-
-  useEffect(() => { loadActivePlan().then(setSavedPlan); }, []);
 
   function update(field: keyof FormValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -67,15 +63,10 @@ export default function InputScreen() {
           <Text style={styles.description}>남은 생활비를 기준으로 식비·교통비·여가비 계획을 세워요.</Text>
         </View>
 
-        {savedPlan ? (
-          <Pressable accessibilityRole="button" onPress={() => router.push("/plan")} style={styles.resumeCard}>
-            <View>
-              <Text style={styles.resumeEyebrow}>저장된 플랜</Text>
-              <Text style={styles.resumeText}>이어서 지출을 기록해요</Text>
-            </View>
-            <Text style={styles.arrow}>→</Text>
-          </Pressable>
-        ) : null}
+        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/account", params: { mode: "restore" } })} style={styles.resumeCard}>
+          <View><Text style={styles.resumeEyebrow}>저장된 플랜</Text><Text style={styles.resumeText}>닉네임과 비밀번호로 불러와요</Text></View>
+          <Text style={styles.arrow}>→</Text>
+        </Pressable>
 
         <View style={styles.formCard}>
           <View style={styles.sectionHeader}>
