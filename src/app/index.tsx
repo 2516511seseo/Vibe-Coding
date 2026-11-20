@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
@@ -180,11 +180,29 @@ export default function InputScreen() {
                 </View>
                 <Slider
                   accessibilityLabel={`${CATEGORY_LABELS[category]} 예산 비율`}
+                  accessibilityValue={{ min: 0, max: 100, now: priorities[category], text: `${priorities[category]}%` }}
+                  "aria-valuemin"={0}
+                  "aria-valuemax"={100}
+                  "aria-valuenow"={priorities[category]}
+                  "aria-valuetext"={`${priorities[category]}%`}
+                  focusable={Platform.OS === "web" ? true : undefined}
                   minimumValue={0}
                   maximumValue={100}
                   step={1}
                   value={priorities[category]}
                   onValueChange={(value) => setPriorities((current) => setPriorityPercent(current, category, value))}
+                  onKeyDown={Platform.OS === "web" ? (event) => {
+                    if (event.nativeEvent.altKey || event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) return;
+                    const { key } = event.nativeEvent;
+                    const nextValue = key === "Home" ? 0
+                      : key === "End" ? 100
+                      : key === "ArrowLeft" || key === "ArrowDown" ? priorities[category] - 1
+                      : key === "ArrowRight" || key === "ArrowUp" ? priorities[category] + 1
+                      : null;
+                    if (nextValue === null) return;
+                    event.preventDefault();
+                    setPriorities((current) => setPriorityPercent(current, category, nextValue));
+                  } : undefined}
                   minimumTrackTintColor={colors.accent}
                   maximumTrackTintColor="#dfe5dc"
                   thumbTintColor={colors.accent}
