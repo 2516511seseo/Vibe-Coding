@@ -5,10 +5,9 @@ import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, setPriorityPercent, validateForm } from "../lib/budget";
 import { getSiteOrigin } from "../lib/seo";
+import { colors } from "../lib/theme";
 import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities } from "../lib/types";
 import type { Metadata } from "expo-router/server";
-
-const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
 
 function dateAfter(days: number) {
   const [year, month, day] = seoulToday().split("-").map(Number);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocateAmount, buildDailyPlanCards, dailyMealBudgetForCard, daysInclusive, normalizeForm, summarizePlan, swapPriority, validateForm } from "./budget";
+import { allocateAmount, buildDailyPlanCards, dailyMealBudgetForCard, daysInclusive, normalizeForm, summarizePlan, validateForm } from "./budget";
 import type { SavedPlan } from "./types";
 
 describe("생활비 계산", () => {
@@ -20,11 +20,6 @@ describe("생활비 계산", () => {
     };
     expect(summarizePlan(plan, "2026-11-19").expectedOutingDays).toBe(9);
     expect(summarizePlan(plan, "2026-11-19").transportPerOutingDay).toBe(10_000);
-  });
-
-  it("순위를 바꾸면 같은 순위끼리 맞교환한다", () => {
-    expect(swapPriority({ food: 1, transport: 2, leisure: 3 }, "transport", 1))
-      .toEqual({ food: 2, transport: 1, leisure: 3 });
   });
 
   it("초과 지출 후 낮은 우선순위 항목부터 하루 한도를 줄인다", () => {

@@ -4,11 +4,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { buildDailyPlanCards, dailyMealBudgetForCard, dateRange, normalizePriorities, seoulToday, summarizePlan } from "../lib/budget";
 import { loadActivePlan, saveActivePlan, savePendingPlan } from "../lib/storage";
+import { colors } from "../lib/theme";
 import { MEAL_FILTERS, MEAL_GROUP_LABELS, MEAL_MENU, type MealFilter } from "../lib/meals";
 import type { Metadata } from "expo-router/server";
 import { CATEGORIES, CATEGORY_LABELS, type Category, type DailyPlanCard, type Expense, type SavedPlan } from "../lib/types";
 
-const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36", warm: "#f4eee0" };
 const won = (amount: number) => `${Math.max(0, amount).toLocaleString("ko-KR")}원`;
 const cardDateLabel = (date: string) => `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`;
 

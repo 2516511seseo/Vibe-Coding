@@ -150,11 +150,6 @@ export function normalizeForm(values: FormValues, priorities: Priorities, fixedE
   };
 }
 
-export function swapPriority(priorities: Priorities, category: Category, rank: 1 | 2 | 3): Priorities {
-  const other = CATEGORIES.find((item) => item !== category && priorities[item] === rank);
-  return other ? { ...priorities, [category]: rank, [other]: priorities[category] } : priorities;
-}
-
 export function allocateAmount(amount: number, priorities: Priorities) {
   const percentages = normalizePriorities(priorities);
   const result = {} as Record<Category, number>;

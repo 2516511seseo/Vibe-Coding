@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { createPlanAccount, loadPendingPlan, restorePlanAccount } from "../lib/storage";
+import { colors } from "../lib/theme";
 import type { SavedPlan } from "../lib/types";
-
-const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
 
 export default function AccountScreen() {
   const router = useRouter();
