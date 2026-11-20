@@ -1,0 +1,13 @@
+# Keep local secrets and machine-specific files out of Vercel uploads.
+.env
+.env.*
+.expo/
+dist/
+node_modules/
+sources/
+AGENTS.md
+CODEX.md
+PLAN.md
+PRD.md
+README.md
+
