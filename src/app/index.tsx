@@ -4,7 +4,9 @@ import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, swapPriority, validateForm } from "../lib/budget";
 import { loadActivePlan } from "../lib/storage";
+import { getSiteOrigin } from "../lib/seo";
 import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities, type SavedPlan } from "../lib/types";
+import type { Metadata } from "expo-router/server";
 
 const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
 const ratio = (rank: number) => (rank === 1 ? "50%" : rank === 2 ? "30%" : "20%");
@@ -211,6 +213,18 @@ export default function InputScreen() {
       </View>
     </ScrollView>
   );
+}
+
+export function generateMetadata(): Metadata {
+  const title = "대학생 생활비 계산기 | DAILY RUNWAY";
+  const description = "남은 생활비와 다음 수입일까지의 기간, 등교일수를 기준으로 식비·교통비·여가비 플랜을 세워요.";
+  const canonical = `${getSiteOrigin()}/`;
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { type: "website", locale: "ko_KR", url: canonical, title, description, siteName: "Daily Runway" },
+  };
 }
 
 const styles = StyleSheet.create({

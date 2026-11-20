@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { buildDailyPlanCards, dateRange, seoulToday, summarizePlan } from "../lib/budget";
 import { loadActivePlan, saveActivePlan } from "../lib/storage";
+import type { Metadata } from "expo-router/server";
 import { CATEGORIES, CATEGORY_LABELS, type Category, type DailyPlanCard, type Expense, type SavedPlan } from "../lib/types";
 
 const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36", warm: "#f4eee0" };
@@ -268,6 +269,14 @@ export default function PlanScreen() {
       </View>
     </ScrollView>
   );
+}
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "생활비 플랜 | Daily Runway",
+    description: "저장한 생활비 플랜과 실제 지출을 확인해요.",
+    robots: { index: false, follow: false },
+  };
 }
 
 function DailyBudgetCard({
