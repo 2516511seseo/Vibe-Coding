@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
-import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, swapPriority, validateForm } from "../lib/budget";
+import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, setPriorityPercent, validateForm } from "../lib/budget";
 import { loadActivePlan } from "../lib/storage";
 import { getSiteOrigin } from "../lib/seo";
 import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities, type SavedPlan } from "../lib/types";
 import type { Metadata } from "expo-router/server";
 
 const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
-const ratio = (rank: number) => (rank === 1 ? "50%" : rank === 2 ? "30%" : "20%");
 
 function dateAfter(days: number) {
   const [year, month, day] = seoulToday().split("-").map(Number);
@@ -174,30 +174,30 @@ export default function InputScreen() {
 
           <View style={[styles.field, styles.priorityField]}>
             <View style={styles.priorityHeading}>
-              <Text style={styles.label}>지출 우선순위</Text>
-              <Text style={styles.hint}>1위 50% · 2위 30% · 3위 20%</Text>
+              <Text style={styles.label}>분야별 예산 비율</Text>
+              <Text style={styles.hint}>슬라이더를 움직여 조절해요. 비율은 0%까지 낮출 수 있고, 합계는 항상 100%예요.</Text>
             </View>
             {CATEGORIES.map((category) => (
               <View key={category} style={styles.priorityRow}>
-                <Text style={styles.categoryName}>{CATEGORY_LABELS[category]}</Text>
-                <View style={styles.rankChoices}>
-                  {([1, 2, 3] as const).map((rank) => {
-                    const selected = priorities[category] === rank;
-                    return (
-                      <Pressable
-                        key={rank}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${CATEGORY_LABELS[category]} ${rank}위, ${ratio(rank)}`}
-                        accessibilityState={{ selected }}
-                        onPress={() => setPriorities((current) => swapPriority(current, category, rank))}
-                        style={[styles.rankButton, selected && styles.rankButtonSelected]}
-                      >
-                        <Text style={[styles.rankText, selected && styles.rankTextSelected]}>{rank}위</Text>
-                        <Text style={[styles.rankRatio, selected && styles.rankTextSelected]}>{ratio(rank)}</Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={styles.priorityRowTop}>
+                  <View>
+                    <Text style={styles.categoryName}>{CATEGORY_LABELS[category]}</Text>
+                    <Text style={styles.priorityRank}>{priorities[category] === 0 ? "배정 없음" : `${[...CATEGORIES].sort((a, b) => priorities[b] - priorities[a]).indexOf(category) + 1}순위`}</Text>
+                  </View>
+                  <Text style={styles.priorityPercent}>{priorities[category]}%</Text>
                 </View>
+                <Slider
+                  accessibilityLabel={`${CATEGORY_LABELS[category]} 예산 비율`}
+                  minimumValue={0}
+                  maximumValue={100}
+                  step={1}
+                  value={priorities[category]}
+                  onValueChange={(value) => setPriorities((current) => setPriorityPercent(current, category, value))}
+                  minimumTrackTintColor={colors.accent}
+                  maximumTrackTintColor="#dfe5dc"
+                  thumbTintColor={colors.accent}
+                  style={styles.allocationSlider}
+                />
               </View>
             ))}
             {errors.priorities ? <Text accessibilityRole="alert" style={styles.error}>{errors.priorities}</Text> : null}
@@ -209,7 +209,7 @@ export default function InputScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.footer}>50·30·20 비율은 권장 예산이며, 필수 비용 충족을 보장하지 않아요.</Text>
+        <Text style={styles.footer}>한 분야의 비율을 바꾸면 나머지 분야가 자동 조정돼 합계 100%를 유지해요. 0%로도 설정할 수 있어요.</Text>
       </View>
     </ScrollView>
   );
@@ -267,14 +267,12 @@ const styles = StyleSheet.create({
   removeFixedButton: { alignSelf: "flex-end", paddingHorizontal: 8, paddingVertical: 7 },
   removeFixedText: { color: colors.muted, fontSize: 11 },
   priorityHeading: { marginBottom: 8 },
-  priorityRow: { minHeight: 62, borderTopWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  priorityRow: { borderTopWidth: 1, borderColor: colors.line, paddingTop: 12, paddingBottom: 6 },
+  priorityRowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   categoryName: { color: colors.ink, fontWeight: "600", fontSize: 14 },
-  rankChoices: { flexDirection: "row", gap: 8 },
-  rankButton: { width: 54, minHeight: 48, borderWidth: 1, borderColor: colors.line, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  rankButtonSelected: { borderColor: colors.accent, backgroundColor: colors.accent },
-  rankText: { color: colors.ink, fontSize: 12, fontWeight: "700" },
-  rankRatio: { color: colors.muted, fontSize: 10, marginTop: 2 },
-  rankTextSelected: { color: "#fff" },
+  priorityRank: { color: colors.muted, fontSize: 10, marginTop: 4 },
+  priorityPercent: { color: colors.accent, fontSize: 16, fontWeight: "700" },
+  allocationSlider: { width: "100%", height: 38, marginTop: 4 },
   primaryButton: { height: 60, paddingHorizontal: 18, borderRadius: 12, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   primaryButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   buttonArrow: { color: "#fff", fontSize: 20 },

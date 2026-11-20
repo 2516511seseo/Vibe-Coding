@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { normalizePriorities } from "./budget";
 import type { SavedPlan } from "./types";
 
 const STORAGE_KEY = "daily-runway.active-plan.v1";
@@ -13,6 +14,7 @@ export async function loadActivePlan(): Promise<SavedPlan | null> {
       ...plan,
       input: {
         ...plan.input,
+        priorities: normalizePriorities(plan.input.priorities),
         fixedExpenses: Array.isArray(plan.input.fixedExpenses) ? plan.input.fixedExpenses : [],
       },
     };

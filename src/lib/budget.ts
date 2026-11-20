@@ -5,6 +5,7 @@ import {
   type FixedExpense,
   type FixedExpenseDraft,
   type DailyPlanCard,
+  type Expense,
   type PlanInput,
   type PlanSummary,
   type Priorities,
@@ -12,7 +13,52 @@ import {
 } from "./types";
 
 const DAY = 86_400_000;
-export const DEFAULT_PRIORITIES: Priorities = { food: 1, transport: 2, leisure: 3 };
+export const DEFAULT_PRIORITIES: Priorities = { food: 50, transport: 30, leisure: 20 };
+
+export function normalizePriorities(value: unknown): Priorities {
+  if (!value || typeof value !== "object") return { ...DEFAULT_PRIORITIES };
+  const source = value as Record<Category, unknown>;
+  const values = CATEGORIES.map((category) => source[category]);
+  if (values.every((item) => Number.isSafeInteger(item) && Number(item) >= 0 && Number(item) <= 100) && values.reduce<number>((sum, item) => sum + Number(item), 0) === 100) {
+    return { food: Number(source.food), transport: Number(source.transport), leisure: Number(source.leisure) };
+  }
+  if (values.every((item) => item === 1 || item === 2 || item === 3) && new Set(values).size === 3) {
+    const percentageForRank = { 1: 50, 2: 30, 3: 20 } as const;
+    return {
+      food: percentageForRank[Number(source.food) as 1 | 2 | 3],
+      transport: percentageForRank[Number(source.transport) as 1 | 2 | 3],
+      leisure: percentageForRank[Number(source.leisure) as 1 | 2 | 3],
+    };
+  }
+  return { ...DEFAULT_PRIORITIES };
+}
+
+export function setPriorityPercent(priorities: Priorities, category: Category, requestedPercent: number): Priorities {
+  const current = normalizePriorities(priorities);
+  const percent = Math.max(0, Math.min(100, Math.round(requestedPercent)));
+  const remainder = 100 - percent;
+  const others = CATEGORIES.filter((item) => item !== category);
+  const firstOtherCategory = others[0]!;
+  const secondOtherCategory = others[1]!;
+  const previousTotal = current[firstOtherCategory] + current[secondOtherCategory];
+  const firstOtherPercent = previousTotal > 0
+    ? Math.round((remainder * current[firstOtherCategory]) / previousTotal)
+    : Math.floor(remainder / 2);
+  return {
+    ...current,
+    [category]: percent,
+    [firstOtherCategory]: firstOtherPercent,
+    [secondOtherCategory]: remainder - firstOtherPercent,
+  };
+}
+
+function hasValidPriorities(priorities: Priorities) {
+  const values = CATEGORIES.map((category) => priorities[category]);
+  const validPercentages = values.every((value) => Number.isSafeInteger(value) && value >= 0 && value <= 100)
+    && values.reduce((sum, value) => sum + value, 0) === 100;
+  const validLegacyRanks = values.every((value) => value === 1 || value === 2 || value === 3) && new Set(values).size === 3;
+  return validPercentages || validLegacyRanks;
+}
 
 export function seoulToday(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -64,8 +110,8 @@ export function validateForm(
   if (values.schoolDaysPerWeek === "" || !/^\d+$/.test(values.schoolDaysPerWeek) || Number(values.schoolDaysPerWeek) > 7) {
     errors.schoolDaysPerWeek = "주당 등교일수를 0~7 사이 정수로 입력해 주세요.";
   }
-  if (new Set(CATEGORIES.map((category) => priorities[category])).size !== 3) {
-    errors.priorities = "각 항목의 순위를 1·2·3위로 설정해 주세요.";
+  if (!hasValidPriorities(priorities)) {
+    errors.priorities = "분야별 비율의 합계가 100%가 되도록 조절해 주세요.";
   }
 
   const wholeAmount = /^\d+$/.test(amountText) ? Number(amountText) : 0;
@@ -95,7 +141,7 @@ export function normalizeForm(values: FormValues, priorities: Priorities, fixedE
     amount: Number(values.amount.trim().replace(/,/g, "")),
     endDate: values.endDate,
     schoolDaysPerWeek: Number(values.schoolDaysPerWeek),
-    priorities: { ...priorities },
+    priorities: normalizePriorities(priorities),
     fixedExpenses: fixedExpenses.map((item) => ({
       id: item.id,
       amount: Number(item.amount.trim().replace(/,/g, "")),
@@ -110,13 +156,13 @@ export function swapPriority(priorities: Priorities, category: Category, rank: 1
 }
 
 export function allocateAmount(amount: number, priorities: Priorities) {
+  const percentages = normalizePriorities(priorities);
   const result = {} as Record<Category, number>;
   for (const category of CATEGORIES) {
-    const percent = priorities[category] === 1 ? 50 : priorities[category] === 2 ? 30 : 20;
-    result[category] = Math.floor((amount * percent) / 100);
+    result[category] = Math.floor((amount * percentages[category]) / 100);
   }
-  const third = CATEGORIES.find((category) => priorities[category] === 3)!;
-  result[third] += amount - Object.values(result).reduce((sum, value) => sum + value, 0);
+  const first = [...CATEGORIES].sort((a, b) => percentages[b] - percentages[a])[0]!;
+  result[first] += amount - Object.values(result).reduce((sum, value) => sum + value, 0);
   return result;
 }
 
@@ -149,6 +195,7 @@ export function buildDailyPlanCards(plan: SavedPlan): DailyPlanCard[] {
   const fixedByDate = new Map<string, number>();
   for (const item of fixedExpenses) fixedByDate.set(item.transferDate, (fixedByDate.get(item.transferDate) ?? 0) + item.amount);
 
+  let allocatedThroughDate = 0;
   return dates.map((date, index) => {
     const availableByCategory = {} as DailyPlanCard["availableByCategory"];
     const remainingByCategory = {} as DailyPlanCard["remainingByCategory"];
@@ -169,18 +216,31 @@ export function buildDailyPlanCards(plan: SavedPlan): DailyPlanCard[] {
       .filter((expense) => expense.date <= date)
       .reduce((sum, expense) => sum + expense.amount, 0);
     const dailyAvailable = Object.values(availableByCategory).reduce((sum, value) => sum + value, 0);
+    allocatedThroughDate += dailyAvailable;
     return {
       date,
       availableByCategory,
       remainingByCategory,
       fixedExpenseDue: fixedByDate.get(date) ?? 0,
-      remainingBalance: plan.input.amount - fixedPaidToDate - spentToDate - dailyAvailable,
+      remainingBalance: Math.max(0, plan.input.amount - fixedPaidToDate - spentToDate - allocatedThroughDate),
     };
   });
 }
 
+export function dailyMealBudgetForCard(card: DailyPlanCard, expenses: Expense[], remainingDailyFood: number) {
+  const spentOnDate = expenses
+    .filter((expense) => expense.category === "food" && expense.date === card.date)
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  return Math.max(0, Math.min(
+    card.availableByCategory.food - spentOnDate,
+    card.remainingByCategory.food,
+    remainingDailyFood,
+  ));
+}
+
 export function summarizePlan(plan: SavedPlan, today = seoulToday()): PlanSummary {
-  const { amount, endDate, schoolDaysPerWeek, priorities } = plan.input;
+  const { amount, endDate, schoolDaysPerWeek } = plan.input;
+  const priorities = normalizePriorities(plan.input.priorities);
   const fixedTotal = (plan.input.fixedExpenses ?? []).reduce((sum, item) => sum + item.amount, 0);
   const flexibleAmount = Math.max(0, amount - fixedTotal);
   const totalDays = daysInclusive(plan.startDate, endDate);
@@ -197,8 +257,8 @@ export function summarizePlan(plan: SavedPlan, today = seoulToday()): PlanSummar
   const extraDailySavings = Math.max(0, plannedDaily - remainingDaily);
   const categoryDaily = {} as Record<Category, number>;
   for (const category of CATEGORIES) categoryDaily[category] = totalDays ? Math.floor(categoryAmounts[category] / totalDays) : 0;
-  const third = CATEGORIES.find((category) => priorities[category] === 3)!;
-  categoryDaily[third] += Math.max(0, plannedDaily - Object.values(categoryDaily).reduce((sum, value) => sum + value, 0));
+  const first = [...CATEGORIES].sort((a, b) => priorities[b] - priorities[a])[0]!;
+  categoryDaily[first] += Math.max(0, plannedDaily - Object.values(categoryDaily).reduce((sum, value) => sum + value, 0));
 
   let reduction = Math.max(0, plannedDaily - remainingDaily);
   for (const category of [...CATEGORIES].sort((a, b) => priorities[b] - priorities[a])) {

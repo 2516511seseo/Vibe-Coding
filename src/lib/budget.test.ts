@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocateAmount, buildDailyPlanCards, daysInclusive, normalizeForm, summarizePlan, swapPriority, validateForm } from "./budget";
+import { allocateAmount, buildDailyPlanCards, dailyMealBudgetForCard, daysInclusive, normalizeForm, summarizePlan, swapPriority, validateForm } from "./budget";
 import type { SavedPlan } from "./types";
 
 describe("생활비 계산", () => {
@@ -75,6 +75,20 @@ describe("생활비 계산", () => {
     const cards = buildDailyPlanCards(plan);
     expect(cards).toHaveLength(3);
     expect(cards.reduce((sum, card) => sum + card.availableByCategory.food, 0)).toBe(135_000);
-    expect(cards[1]).toMatchObject({ fixedExpenseDue: 30_000, remainingByCategory: { food: 125_000 }, remainingBalance: 170_000 });
+    expect(cards[1]).toMatchObject({ fixedExpenseDue: 30_000, remainingByCategory: { food: 125_000 }, remainingBalance: 80_000 });
+    expect(cards.map((card) => card.remainingBalance)).toEqual([210_000, 80_000, 0]);
+  });
+
+  it("식사 추천 한도는 그날 식비 지출과 남은 하루·총 식비를 넘지 않는다", () => {
+    const plan: SavedPlan = {
+      id: "meal-budget", createdAt: "", startDate: "2026-11-19",
+      input: { amount: 300_000, endDate: "2026-11-21", schoolDaysPerWeek: 5, priorities: { food: 1, transport: 2, leisure: 3 }, fixedExpenses: [] },
+      expenses: [{ id: "today-meal", date: "2026-11-20", category: "food", amount: 2_000 }],
+    };
+    const card = buildDailyPlanCards(plan)[1];
+    expect(dailyMealBudgetForCard(card, plan.expenses, 7_000)).toBe(7_000);
+    expect(dailyMealBudgetForCard(card, plan.expenses, 20_000)).toBe(20_000);
+    expect(dailyMealBudgetForCard(card, plan.expenses, 1_000_000)).toBe(48_000);
+    expect(dailyMealBudgetForCard({ ...card, remainingByCategory: { ...card.remainingByCategory, food: 1_000 } }, plan.expenses, 20_000)).toBe(1_000);
   });
 });

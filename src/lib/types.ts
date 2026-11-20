@@ -1,5 +1,5 @@
 export type Category = "food" | "transport" | "leisure";
-export type Priorities = Record<Category, 1 | 2 | 3>;
+export type Priorities = Record<Category, number>;
 
 export type FixedExpense = {
   id: string;
