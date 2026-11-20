@@ -9,7 +9,13 @@ export async function loadActivePlan(): Promise<SavedPlan | null> {
     if (!value) return null;
     const plan = JSON.parse(value) as SavedPlan;
     if (!plan?.input || !Array.isArray(plan.expenses) || !plan.input.priorities) return null;
-    return plan;
+    return {
+      ...plan,
+      input: {
+        ...plan.input,
+        fixedExpenses: Array.isArray(plan.input.fixedExpenses) ? plan.input.fixedExpenses : [],
+      },
+    };
   } catch {
     return null;
   }

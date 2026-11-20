@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
-import { seoulToday, summarizePlan } from "../lib/budget";
+import { buildDailyPlanCards, dateRange, seoulToday, summarizePlan } from "../lib/budget";
 import { loadActivePlan, saveActivePlan } from "../lib/storage";
-import { CATEGORIES, CATEGORY_LABELS, type Category, type Expense, type SavedPlan } from "../lib/types";
+import { CATEGORIES, CATEGORY_LABELS, type Category, type DailyPlanCard, type Expense, type SavedPlan } from "../lib/types";
 
 const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36", warm: "#f4eee0" };
 const ratio = (rank: number) => (rank === 1 ? "50%" : rank === 2 ? "30%" : "20%");
 const won = (amount: number) => `${Math.max(0, amount).toLocaleString("ko-KR")}원`;
+const cardDateLabel = (date: string) => `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`;
 
 function askReplace() {
   if (Platform.OS === "web") return Promise.resolve(window.confirm("기존 플랜과 지출 기록을 새 플랜으로 바꿀까요?"));
@@ -31,6 +32,9 @@ export default function PlanScreen() {
   const [expenseError, setExpenseError] = useState("");
   const [message, setMessage] = useState("");
   const today = seoulToday();
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [dateViewportWidth, setDateViewportWidth] = useState(0);
+  const dateCardsRef = useRef<ScrollViewInstance | null>(null);
 
   useEffect(() => {
     let parsedDraft: SavedPlan | null = null;
@@ -40,6 +44,7 @@ export default function PlanScreen() {
     loadActivePlan().then((stored) => {
       setActivePlan(stored);
       if (parsedDraft?.input && Array.isArray(parsedDraft.expenses)) {
+        parsedDraft.input.fixedExpenses = Array.isArray(parsedDraft.input.fixedExpenses) ? parsedDraft.input.fixedExpenses : [];
         if (stored?.id === parsedDraft.id) {
           setPlan(stored);
           setSaved(true);
@@ -58,6 +63,23 @@ export default function PlanScreen() {
   }, [draft, router]);
 
   const summary = useMemo(() => plan ? summarizePlan(plan, today) : null, [plan, today]);
+  const dailyCards = useMemo(() => plan ? buildDailyPlanCards(plan) : [], [plan]);
+  const selectedCard = dailyCards.find((card) => card.date === selectedDate) ?? dailyCards[0] ?? null;
+  const selectedIndex = selectedCard ? dailyCards.findIndex((card) => card.date === selectedCard.date) : 0;
+
+  useEffect(() => {
+    if (!dailyCards.length) return;
+    const dates = dailyCards.map((card) => card.date);
+    setSelectedDate(dates.includes(today) ? today : today < dates[0] ? dates[0] : dates[dates.length - 1]);
+  }, [plan?.id, today, dailyCards.length]);
+
+  useEffect(() => {
+    if (!dateViewportWidth || !selectedCard) return;
+    const cardWidth = 290;
+    const gap = 10;
+    const offset = Math.max(0, selectedIndex * (cardWidth + gap) - (dateViewportWidth - cardWidth) / 2);
+    dateCardsRef.current?.scrollTo({ x: offset, animated: false });
+  }, [selectedIndex, dateViewportWidth, selectedCard]);
 
   async function commitPlan(next: SavedPlan) {
     setPlan(next);
@@ -112,6 +134,8 @@ export default function PlanScreen() {
   if (loading || !plan || !summary) return <View style={styles.loading}><Text style={styles.muted}>플랜을 불러오는 중이에요…</Text></View>;
 
   const categoryOrder = [...CATEGORIES].sort((a, b) => plan.input.priorities[a] - plan.input.priorities[b]);
+  const planDates = dateRange(plan.startDate, plan.input.endDate);
+  const currentDateOutsidePlan = !planDates.includes(today);
   const dateChanged = plan.startDate !== today;
 
   return (
@@ -132,6 +156,34 @@ export default function PlanScreen() {
         </View>
 
         {dateChanged ? <View style={styles.notice}><Text style={styles.noticeText}>플랜을 만든 뒤 날짜가 바뀌었어요. 오늘부터 종료일까지 남은 기간으로 한도를 다시 계산했어요.</Text></View> : null}
+
+        <View style={styles.dateSection}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>날짜별 생활비</Text>
+              <Text style={styles.dateSectionCaption}>날짜 카드를 눌러 그날의 예산을 확인해요.</Text>
+            </View>
+            {currentDateOutsidePlan ? <Text style={styles.dateOutsideNote}>플랜 기간 밖</Text> : null}
+          </View>
+          <ScrollView
+            ref={dateCardsRef}
+            horizontal
+            showsHorizontalScrollIndicator
+            contentContainerStyle={styles.dateCardsRow}
+            onLayout={(event) => setDateViewportWidth(event.nativeEvent.layout.width)}
+          >
+            {dailyCards.map((card) => (
+              <DailyBudgetCard
+                key={card.date}
+                card={card}
+                selected={card.date === selectedCard?.date}
+                isToday={card.date === today}
+                onPress={() => setSelectedDate(card.date)}
+              />
+            ))}
+          </ScrollView>
+          {currentDateOutsidePlan ? <Text style={styles.dateRangeHint}>오늘이 플랜 기간에 포함되지 않아 가장 가까운 플랜 날짜를 보여주고 있어요.</Text> : null}
+        </View>
 
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, styles.statMain]}>
@@ -218,6 +270,58 @@ export default function PlanScreen() {
   );
 }
 
+function DailyBudgetCard({
+  card,
+  selected,
+  isToday,
+  onPress,
+}: {
+  card: DailyPlanCard;
+  selected: boolean;
+  isToday: boolean;
+  onPress: () => void;
+}) {
+  const weekday = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", weekday: "short" })
+    .format(new Date(`${card.date}T12:00:00+09:00`));
+  const balance = `${card.remainingBalance < 0 ? "−" : ""}${Math.abs(card.remainingBalance).toLocaleString("ko-KR")}원`;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${card.date} 예산 카드`}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.dateCard, selected && styles.dateCardSelected]}
+    >
+      <View style={styles.dateCardHeader}>
+        <View>
+          <Text style={styles.dateCardDate}>{cardDateLabel(card.date)} · {weekday}</Text>
+          {isToday ? <Text style={styles.todayTag}>오늘</Text> : null}
+        </View>
+        {selected ? <Text style={styles.selectedTag}>선택됨</Text> : null}
+      </View>
+      <View style={styles.dateCategoryList}>
+        {CATEGORIES.map((category) => (
+          <View key={category} style={styles.dateCategoryRow}>
+            <Text style={styles.dateCategoryName}>{CATEGORY_LABELS[category]}</Text>
+            <View style={styles.dateAmounts}>
+              <Text style={styles.dateAmount}><Text style={styles.dateAmountLabel}>가용 </Text>{won(card.availableByCategory[category])}</Text>
+              <Text style={styles.dateAmount}><Text style={styles.dateAmountLabel}>남음 </Text>{won(card.remainingByCategory[category])}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={styles.fixedDueRow}>
+        <Text style={styles.fixedDueLabel}>오늘 고정지출</Text>
+        <Text style={styles.fixedDueAmount}>{card.fixedExpenseDue > 0 ? won(card.fixedExpenseDue) : "없음"}</Text>
+      </View>
+      <View style={styles.dateBalanceBox}>
+        <Text style={styles.dateBalanceLabel}>오늘 예산 반영 후 잔액</Text>
+        <Text style={styles.dateBalanceAmount}>{balance}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#f7f6f2" },
   pageContent: { paddingHorizontal: 20, paddingBottom: 60 },
@@ -254,6 +358,29 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14, marginTop: 6 },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: "700" },
   sectionCaption: { color: colors.muted, fontSize: 11 },
+  dateSection: { marginBottom: 30 },
+  dateSectionCaption: { color: colors.muted, fontSize: 11, marginTop: 5 },
+  dateOutsideNote: { color: "#826b3b", fontSize: 10, fontWeight: "700" },
+  dateCardsRow: { gap: 10, paddingVertical: 4, paddingHorizontal: 1 },
+  dateCard: { width: 290, minHeight: 250, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 16 },
+  dateCardSelected: { borderColor: colors.accent, borderWidth: 2, backgroundColor: "#fbfcfa" },
+  dateCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", minHeight: 40, marginBottom: 10 },
+  dateCardDate: { color: colors.ink, fontSize: 15, fontWeight: "700" },
+  todayTag: { color: colors.accent, fontSize: 10, fontWeight: "700", marginTop: 3 },
+  selectedTag: { color: colors.accent, fontSize: 10, fontWeight: "700" },
+  dateCategoryList: { borderTopWidth: 1, borderColor: colors.line, paddingTop: 3 },
+  dateCategoryRow: { minHeight: 36, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderColor: "#f0eee8", gap: 6 },
+  dateCategoryName: { color: colors.ink, fontSize: 11, fontWeight: "600", width: 48 },
+  dateAmounts: { flex: 1, flexDirection: "row", justifyContent: "space-between", gap: 6 },
+  dateAmount: { color: colors.ink, fontSize: 10, fontWeight: "600" },
+  dateAmountLabel: { color: colors.muted, fontWeight: "400" },
+  fixedDueRow: { minHeight: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
+  fixedDueLabel: { color: colors.muted, fontSize: 11 },
+  fixedDueAmount: { color: colors.ink, fontSize: 11, fontWeight: "700" },
+  dateBalanceBox: { backgroundColor: colors.ink, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  dateBalanceLabel: { color: "#d2d4cf", fontSize: 10, flexShrink: 1 },
+  dateBalanceAmount: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  dateRangeHint: { color: colors.muted, fontSize: 11, marginTop: 6 },
   categoryGrid: { flexDirection: "row", gap: 12, flexWrap: "wrap", marginBottom: 12 },
   categoryCard: { flexGrow: 1, flexBasis: 235, backgroundColor: colors.paper, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 18 },
   categoryTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: 14, borderBottomWidth: 1, borderColor: colors.line, marginBottom: 12 },

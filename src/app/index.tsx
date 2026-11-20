@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, swapPriority, validateForm } from "../lib/budget";
 import { loadActivePlan } from "../lib/storage";
-import { CATEGORIES, CATEGORY_LABELS, type Category, type FormValues, type Priorities, type SavedPlan } from "../lib/types";
+import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities, type SavedPlan } from "../lib/types";
 
 const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
 const ratio = (rank: number) => (rank === 1 ? "50%" : rank === 2 ? "30%" : "20%");
@@ -20,7 +20,8 @@ export default function InputScreen() {
   const today = seoulToday();
   const [values, setValues] = useState<FormValues>({ amount: "", endDate: "", schoolDaysPerWeek: "" });
   const [priorities, setPriorities] = useState<Priorities>(DEFAULT_PRIORITIES);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormValues | "priorities", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof FormValues | "priorities" | "fixedExpenses", string>>>({});
+  const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseDraft[]>([]);
   const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null);
 
   useEffect(() => { loadActivePlan().then(setSavedPlan); }, []);
@@ -31,17 +32,23 @@ export default function InputScreen() {
   }
 
   function calculate() {
-    const nextErrors = validateForm(values, priorities, today);
+    const nextErrors = validateForm(values, priorities, today, fixedExpenses);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
     const draft = {
       id: `draft-${Date.now()}`,
       createdAt: new Date().toISOString(),
       startDate: today,
-      input: normalizeForm(values, priorities),
+      input: normalizeForm(values, priorities, fixedExpenses),
       expenses: [],
     };
     router.push({ pathname: "/plan", params: { draft: JSON.stringify(draft) } });
+  }
+
+  function addFixedExpense() {
+    const item: FixedExpenseDraft = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, amount: "", transferDate: today };
+    setFixedExpenses((items) => [...items, item]);
+    setErrors((current) => ({ ...current, fixedExpenses: undefined }));
   }
 
   return (
@@ -75,11 +82,11 @@ export default function InputScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>세 항목에 나눌 생활비</Text>
-            <Text style={styles.hint}>월세·통신비 등 다른 용도로 나갈 돈은 제외해 주세요.</Text>
+            <Text style={styles.label}>고정지출을 포함한 전체 생활비</Text>
+            <Text style={styles.hint}>고정지출을 입력하면 그 금액을 먼저 제외하고 식비·교통비·여가비를 계산해요.</Text>
             <View style={styles.amountBox}>
               <TextInput
-                accessibilityLabel="세 항목에 나눌 생활비"
+                accessibilityLabel="고정지출을 포함한 전체 생활비"
                 value={values.amount}
                 onChangeText={(value) => update("amount", value)}
                 placeholder="금액 입력"
@@ -89,6 +96,54 @@ export default function InputScreen() {
               <Text style={styles.unit}>원</Text>
             </View>
             {errors.amount ? <Text accessibilityRole="alert" style={styles.error}>{errors.amount}</Text> : null}
+          </View>
+
+          <View style={styles.field}>
+            <View style={styles.fixedHeading}>
+              <View style={styles.fixedHeadingText}>
+                <Text style={styles.label}>고정지출</Text>
+                <Text style={styles.hint}>플랜 기간에 이체할 금액과 날짜를 입력해 주세요.</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={addFixedExpense}
+                style={styles.addFixedButton}
+              >
+                <Text style={styles.addFixedText}>＋ 추가</Text>
+              </Pressable>
+            </View>
+            {fixedExpenses.map((item, index) => (
+              <View key={item.id} style={styles.fixedExpenseRow}>
+                <Text style={styles.fixedIndex}>고정지출 {index + 1}</Text>
+                <View style={styles.fixedAmountBox}>
+                  <TextInput
+                    accessibilityLabel={`고정지출 ${index + 1} 금액`}
+                    value={item.amount}
+                    onChangeText={(amount) => setFixedExpenses((items) => items.map((current) => current.id === item.id ? { ...current, amount } : current))}
+                    placeholder="금액"
+                    keyboardType="number-pad"
+                    style={styles.fixedAmountInput}
+                  />
+                  <Text style={styles.unit}>원</Text>
+                </View>
+                <DateField
+                  accessibilityLabel={`고정지출 ${index + 1} 이체일`}
+                  value={item.transferDate}
+                  onChange={(transferDate) => setFixedExpenses((items) => items.map((current) => current.id === item.id ? { ...current, transferDate } : current))}
+                  min={today}
+                  max={values.endDate || dateAfter(365)}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`고정지출 ${index + 1} 삭제`}
+                  onPress={() => setFixedExpenses((items) => items.filter((current) => current.id !== item.id))}
+                  style={styles.removeFixedButton}
+                >
+                  <Text style={styles.removeFixedText}>삭제</Text>
+                </Pressable>
+              </View>
+            ))}
+            {errors.fixedExpenses ? <Text accessibilityRole="alert" style={styles.error}>{errors.fixedExpenses}</Text> : null}
           </View>
 
           <View style={styles.field}>
@@ -187,6 +242,16 @@ const styles = StyleSheet.create({
   schoolInput: { flex: 1, fontSize: 16, color: colors.ink, height: "100%" },
   error: { color: colors.error, fontSize: 12, marginTop: 7 },
   priorityField: { marginBottom: 28 },
+  fixedHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  fixedHeadingText: { flex: 1 },
+  addFixedButton: { borderRadius: 9, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: colors.pale },
+  addFixedText: { color: colors.accent, fontSize: 12, fontWeight: "700" },
+  fixedExpenseRow: { backgroundColor: "#f7f6f2", borderRadius: 12, padding: 12, marginTop: 10 },
+  fixedIndex: { color: colors.ink, fontSize: 12, fontWeight: "700", marginBottom: 8 },
+  fixedAmountBox: { flexDirection: "row", height: 48, borderWidth: 1, borderColor: colors.line, borderRadius: 10, alignItems: "center", paddingHorizontal: 12, backgroundColor: "#fff", marginBottom: 8 },
+  fixedAmountInput: { flex: 1, fontSize: 15, color: colors.ink, height: "100%" },
+  removeFixedButton: { alignSelf: "flex-end", paddingHorizontal: 8, paddingVertical: 7 },
+  removeFixedText: { color: colors.muted, fontSize: 11 },
   priorityHeading: { marginBottom: 8 },
   priorityRow: { minHeight: 62, borderTopWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   categoryName: { color: colors.ink, fontWeight: "600", fontSize: 14 },
