@@ -148,14 +148,15 @@ export default function InputScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>주당 외출일수</Text>
-            <Text style={styles.hint}>학교·아르바이트·약속 등을 포함한 주간 평균으로 계산해요.</Text>
+            <Text style={styles.hint}>1~7일 사이에서 골라 주세요. 학교·아르바이트·약속 등을 포함한 주간 평균이에요.</Text>
             <View style={styles.schoolRow}>
               <TextInput
                 accessibilityLabel="주당 외출일수"
                 value={values.outingDaysPerWeek}
-                onChangeText={(value) => update("outingDaysPerWeek", value)}
+                onChangeText={(value) => update("outingDaysPerWeek", value.replace(/\D/g, "").slice(0, 1))}
                 placeholder="예: 5일"
                 keyboardType="number-pad"
+                maxLength={1}
                 style={styles.schoolInput}
               />
               <Text style={styles.unit}>일 / 주</Text>
