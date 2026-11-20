@@ -310,9 +310,9 @@ export default function PlanScreen() {
             <Text style={styles.statSub}>남은 {summary.remainingDays}일 기준</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>등교 1일 교통 한도</Text>
-            <Text style={styles.statValue}>{summary.commuteDaily === null ? "등교일 없음" : won(summary.commuteDaily)}</Text>
-            <Text style={styles.statSub}>예상 등교일 {summary.expectedSchoolDays}일</Text>
+            <Text style={styles.statLabel}>외출 1일 교통 한도</Text>
+            <Text style={styles.statValue}>{summary.transportPerOutingDay === null ? "외출일 없음" : won(summary.transportPerOutingDay)}</Text>
+            <Text style={styles.statSub}>예상 외출일 {summary.expectedOutingDays}일</Text>
           </View>
         </View>
 
@@ -337,7 +337,7 @@ export default function PlanScreen() {
           ))}
         </View>
 
-        <View style={styles.infoLine}><Text style={styles.infoDot}>i</Text><Text style={styles.infoText}>등교일은 주당 평균으로 추정해요. 실제 공휴일이나 시험 일정은 반영하지 않아요.</Text></View>
+        <View style={styles.infoLine}><Text style={styles.infoDot}>i</Text><Text style={styles.infoText}>외출일은 주당 평균으로 추정해요. 실제 요일이나 공휴일 일정은 반영하지 않아요.</Text></View>
 
         {!saved ? (
           <Pressable accessibilityRole="button" onPress={savePlan} style={styles.primaryButton}><Text style={styles.primaryButtonText}>이 플랜 저장하기</Text><Text style={styles.buttonArrow}>→</Text></Pressable>

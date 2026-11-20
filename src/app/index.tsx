@@ -20,7 +20,7 @@ function dateAfter(days: number) {
 export default function InputScreen() {
   const router = useRouter();
   const today = seoulToday();
-  const [values, setValues] = useState<FormValues>({ amount: "", endDate: "", schoolDaysPerWeek: "" });
+  const [values, setValues] = useState<FormValues>({ amount: "", endDate: "", outingDaysPerWeek: "" });
   const [priorities, setPriorities] = useState<Priorities>(DEFAULT_PRIORITIES);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues | "priorities" | "fixedExpenses", string>>>({});
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseDraft[]>([]);
@@ -62,9 +62,9 @@ export default function InputScreen() {
         </View>
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>대학생 생활비 계산기</Text>
-          <Text style={styles.title}>다음 용돈일까지,{"\n"}하루 얼마씩 쓸까?</Text>
-          <Text style={styles.description}>남은 생활비와 등교 일정을 기준으로 식비·교통비·여가비 계획을 세워요.</Text>
+          <Text style={styles.eyebrow}>생활비 계산기</Text>
+          <Text style={styles.title}>돈 없어 미치겠다!!!{"\n"}어떻게 버텨야 하지?</Text>
+          <Text style={styles.description}>남은 생활비를 기준으로 식비·교통비·여가비 계획을 세워요.</Text>
         </View>
 
         {savedPlan ? (
@@ -156,20 +156,20 @@ export default function InputScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>주당 등교일수</Text>
-            <Text style={styles.hint}>실제 요일이나 공휴일이 아닌 주간 평균으로 계산해요.</Text>
+            <Text style={styles.label}>주당 외출일수</Text>
+            <Text style={styles.hint}>학교·아르바이트·약속 등을 포함한 주간 평균으로 계산해요.</Text>
             <View style={styles.schoolRow}>
               <TextInput
-                accessibilityLabel="주당 등교일수"
-                value={values.schoolDaysPerWeek}
-                onChangeText={(value) => update("schoolDaysPerWeek", value)}
-                placeholder="예: 5"
+                accessibilityLabel="주당 외출일수"
+                value={values.outingDaysPerWeek}
+                onChangeText={(value) => update("outingDaysPerWeek", value)}
+                placeholder="예: 5일"
                 keyboardType="number-pad"
                 style={styles.schoolInput}
               />
               <Text style={styles.unit}>일 / 주</Text>
             </View>
-            {errors.schoolDaysPerWeek ? <Text accessibilityRole="alert" style={styles.error}>{errors.schoolDaysPerWeek}</Text> : null}
+            {errors.outingDaysPerWeek ? <Text accessibilityRole="alert" style={styles.error}>{errors.outingDaysPerWeek}</Text> : null}
           </View>
 
           <View style={[styles.field, styles.priorityField]}>
@@ -216,8 +216,8 @@ export default function InputScreen() {
 }
 
 export function generateMetadata(): Metadata {
-  const title = "대학생 생활비 계산기 | DAILY RUNWAY";
-  const description = "남은 생활비와 다음 수입일까지의 기간, 등교일수를 기준으로 식비·교통비·여가비 플랜을 세워요.";
+  const title = "생활비 계산기 | DAILY RUNWAY";
+  const description = "남은 생활비를 기준으로 식비·교통비·여가비 플랜을 세워요.";
   const canonical = `${getSiteOrigin()}/`;
   return {
     title,

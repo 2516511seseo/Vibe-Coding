@@ -107,8 +107,8 @@ export function validateForm(
     else if (current !== null && selected > current + 365 * DAY) errors.endDate = "오늘부터 365일 이내의 날짜를 선택해 주세요.";
   }
 
-  if (values.schoolDaysPerWeek === "" || !/^\d+$/.test(values.schoolDaysPerWeek) || Number(values.schoolDaysPerWeek) > 7) {
-    errors.schoolDaysPerWeek = "주당 등교일수를 0~7 사이 정수로 입력해 주세요.";
+  if (values.outingDaysPerWeek === "" || !/^\d+$/.test(values.outingDaysPerWeek) || Number(values.outingDaysPerWeek) > 7) {
+    errors.outingDaysPerWeek = "주당 외출일수를 0~7 사이 정수로 입력해 주세요.";
   }
   if (!hasValidPriorities(priorities)) {
     errors.priorities = "분야별 비율의 합계가 100%가 되도록 조절해 주세요.";
@@ -140,7 +140,7 @@ export function normalizeForm(values: FormValues, priorities: Priorities, fixedE
   return {
     amount: Number(values.amount.trim().replace(/,/g, "")),
     endDate: values.endDate,
-    schoolDaysPerWeek: Number(values.schoolDaysPerWeek),
+    outingDaysPerWeek: Number(values.outingDaysPerWeek),
     priorities: normalizePriorities(priorities),
     fixedExpenses: fixedExpenses.map((item) => ({
       id: item.id,
@@ -239,7 +239,7 @@ export function dailyMealBudgetForCard(card: DailyPlanCard, expenses: Expense[],
 }
 
 export function summarizePlan(plan: SavedPlan, today = seoulToday()): PlanSummary {
-  const { amount, endDate, schoolDaysPerWeek } = plan.input;
+  const { amount, endDate, outingDaysPerWeek } = plan.input;
   const priorities = normalizePriorities(plan.input.priorities);
   const fixedTotal = (plan.input.fixedExpenses ?? []).reduce((sum, item) => sum + item.amount, 0);
   const flexibleAmount = Math.max(0, amount - fixedTotal);
@@ -267,15 +267,15 @@ export function summarizePlan(plan: SavedPlan, today = seoulToday()): PlanSummar
     reduction -= cut;
   }
 
-  const expectedSchoolDays = Math.round((remainingDays * schoolDaysPerWeek) / 7);
+  const expectedOutingDays = Math.round((remainingDays * outingDaysPerWeek) / 7);
   const transportReduction = Math.max(0, (totalDays ? Math.floor(categoryAmounts.transport / totalDays) : 0) - categoryDaily.transport) * remainingDays;
   const remainingTransport = Math.max(0, categoryAmounts.transport - spentByCategory.transport - transportReduction);
-  const commuteDaily = expectedSchoolDays ? Math.floor(remainingTransport / expectedSchoolDays) : null;
+  const transportPerOutingDay = expectedOutingDays ? Math.floor(remainingTransport / expectedOutingDays) : null;
 
   return {
     totalDays,
     remainingDays,
-    expectedSchoolDays,
+    expectedOutingDays,
     plannedDaily,
     remainingAmount,
     availableAmount,
@@ -286,6 +286,6 @@ export function summarizePlan(plan: SavedPlan, today = seoulToday()): PlanSummar
     categoryAmounts,
     spentByCategory,
     categoryDaily,
-    commuteDaily,
+    transportPerOutingDay,
   };
 }

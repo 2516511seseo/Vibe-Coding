@@ -8,14 +8,16 @@ export async function loadActivePlan(): Promise<SavedPlan | null> {
   try {
     const value = await AsyncStorage.getItem(STORAGE_KEY);
     if (!value) return null;
-    const plan = JSON.parse(value) as SavedPlan;
+    const plan = JSON.parse(value) as SavedPlan & { input: SavedPlan["input"] & { schoolDaysPerWeek?: number } };
     if (!plan?.input || !Array.isArray(plan.expenses) || !plan.input.priorities) return null;
+    const { schoolDaysPerWeek, ...input } = plan.input;
     return {
       ...plan,
       input: {
-        ...plan.input,
-        priorities: normalizePriorities(plan.input.priorities),
-        fixedExpenses: Array.isArray(plan.input.fixedExpenses) ? plan.input.fixedExpenses : [],
+        ...input,
+        outingDaysPerWeek: input.outingDaysPerWeek ?? schoolDaysPerWeek ?? 0,
+        priorities: normalizePriorities(input.priorities),
+        fixedExpenses: Array.isArray(input.fixedExpenses) ? input.fixedExpenses : [],
       },
     };
   } catch {
