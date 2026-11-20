@@ -3,7 +3,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
 import { buildDailyPlanCards, dailyMealBudgetForCard, dateRange, normalizePriorities, seoulToday, summarizePlan } from "../lib/budget";
-import { loadActivePlan, saveActivePlan } from "../lib/storage";
+import { loadActivePlan, saveActivePlan, savePendingPlan } from "../lib/storage";
 import { MEAL_FILTERS, MEAL_GROUP_LABELS, MEAL_MENU, type MealFilter } from "../lib/meals";
 import type { Metadata } from "expo-router/server";
 import { CATEGORIES, CATEGORY_LABELS, type Category, type DailyPlanCard, type Expense, type SavedPlan } from "../lib/types";
@@ -113,9 +113,8 @@ export default function PlanScreen() {
     if (!plan) return;
     if (activePlan && activePlan.id !== plan.id && !(await askReplace())) return;
     try {
-      await commitPlan(plan);
-      setSaved(true);
-      setMessage("플랜을 이 브라우저에 저장했어요.");
+      await savePendingPlan(plan);
+      router.push({ pathname: "/account", params: { mode: "create" } });
     } catch {
       setMessage("저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.");
     }
