@@ -107,8 +107,8 @@ export function validateForm(
     else if (current !== null && selected > current + 365 * DAY) errors.endDate = "오늘부터 365일 이내의 날짜를 선택해 주세요.";
   }
 
-  if (values.outingDaysPerWeek === "" || !/^\d+$/.test(values.outingDaysPerWeek) || Number(values.outingDaysPerWeek) > 7) {
-    errors.outingDaysPerWeek = "주당 외출일수를 0~7 사이 정수로 입력해 주세요.";
+  if (values.outingDaysPerWeek === "" || !/^\d+$/.test(values.outingDaysPerWeek) || Number(values.outingDaysPerWeek) < 1 || Number(values.outingDaysPerWeek) > 7) {
+    errors.outingDaysPerWeek = "주당 외출일수를 1~7 사이 정수로 입력해 주세요.";
   }
   if (!hasValidPriorities(priorities)) {
     errors.priorities = "분야별 비율의 합계가 100%가 되도록 조절해 주세요.";
