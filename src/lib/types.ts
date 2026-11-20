@@ -1,5 +1,5 @@
 export type Category = "food" | "transport" | "leisure";
-export type Priorities = Record<Category, 1 | 2 | 3>;
+export type Priorities = Record<Category, number>;
 
 export type FixedExpense = {
   id: string;
@@ -10,7 +10,7 @@ export type FixedExpense = {
 export type PlanInput = {
   amount: number;
   endDate: string;
-  schoolDaysPerWeek: number;
+  outingDaysPerWeek: number;
   priorities: Priorities;
   fixedExpenses: FixedExpense[];
 };
@@ -24,7 +24,7 @@ export type FixedExpenseDraft = {
 export type FormValues = {
   amount: string;
   endDate: string;
-  schoolDaysPerWeek: string;
+  outingDaysPerWeek: string;
 };
 
 export type Expense = {
@@ -45,7 +45,7 @@ export type SavedPlan = {
 export type PlanSummary = {
   totalDays: number;
   remainingDays: number;
-  expectedSchoolDays: number;
+  expectedOutingDays: number;
   plannedDaily: number;
   remainingAmount: number;
   availableAmount: number;
@@ -56,7 +56,7 @@ export type PlanSummary = {
   categoryAmounts: Record<Category, number>;
   spentByCategory: Record<Category, number>;
   categoryDaily: Record<Category, number>;
-  commuteDaily: number | null;
+  transportPerOutingDay: number | null;
 };
 
 export type DailyPlanCard = {

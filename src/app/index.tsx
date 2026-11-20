@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import { DateField } from "../components/DateField";
-import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, swapPriority, validateForm } from "../lib/budget";
-import { loadActivePlan } from "../lib/storage";
-import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities, type SavedPlan } from "../lib/types";
-
-const colors = { ink: "#22231f", muted: "#777970", line: "#e6e3dc", paper: "#fff", accent: "#526c5d", pale: "#eaf0e8", error: "#a83d36" };
-const ratio = (rank: number) => (rank === 1 ? "50%" : rank === 2 ? "30%" : "20%");
+import { DEFAULT_PRIORITIES, normalizeForm, seoulToday, setPriorityPercent, validateForm } from "../lib/budget";
+import { getSiteOrigin } from "../lib/seo";
+import { colors } from "../lib/theme";
+import { CATEGORIES, CATEGORY_LABELS, type Category, type FixedExpenseDraft, type FormValues, type Priorities } from "../lib/types";
+import type { Metadata } from "expo-router/server";
 
 function dateAfter(days: number) {
   const [year, month, day] = seoulToday().split("-").map(Number);
@@ -18,13 +18,10 @@ function dateAfter(days: number) {
 export default function InputScreen() {
   const router = useRouter();
   const today = seoulToday();
-  const [values, setValues] = useState<FormValues>({ amount: "", endDate: "", schoolDaysPerWeek: "" });
+  const [values, setValues] = useState<FormValues>({ amount: "", endDate: "", outingDaysPerWeek: "" });
   const [priorities, setPriorities] = useState<Priorities>(DEFAULT_PRIORITIES);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues | "priorities" | "fixedExpenses", string>>>({});
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpenseDraft[]>([]);
-  const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null);
-
-  useEffect(() => { loadActivePlan().then(setSavedPlan); }, []);
 
   function update(field: keyof FormValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -60,20 +57,15 @@ export default function InputScreen() {
         </View>
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>대학생 생활비 계산기</Text>
-          <Text style={styles.title}>다음 용돈일까지,{"\n"}하루 얼마씩 쓸까?</Text>
-          <Text style={styles.description}>남은 생활비와 등교 일정을 기준으로 식비·교통비·여가비 계획을 세워요.</Text>
+          <Text style={styles.eyebrow}>생활비 계산기</Text>
+          <Text style={styles.title}>돈 없어 미치겠다!!!{"\n"}어떻게 버텨야 하지?</Text>
+          <Text style={styles.description}>남은 생활비를 기준으로 식비·교통비·여가비 계획을 세워요.</Text>
         </View>
 
-        {savedPlan ? (
-          <Pressable accessibilityRole="button" onPress={() => router.push("/plan")} style={styles.resumeCard}>
-            <View>
-              <Text style={styles.resumeEyebrow}>저장된 플랜</Text>
-              <Text style={styles.resumeText}>이어서 지출을 기록해요</Text>
-            </View>
-            <Text style={styles.arrow}>→</Text>
-          </Pressable>
-        ) : null}
+        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/account", params: { mode: "restore" } })} style={styles.resumeCard}>
+          <View><Text style={styles.resumeEyebrow}>저장된 플랜</Text><Text style={styles.resumeText}>닉네임과 비밀번호로 불러와요</Text></View>
+          <Text style={styles.arrow}>→</Text>
+        </Pressable>
 
         <View style={styles.formCard}>
           <View style={styles.sectionHeader}>
@@ -154,48 +146,67 @@ export default function InputScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>주당 등교일수</Text>
-            <Text style={styles.hint}>실제 요일이나 공휴일이 아닌 주간 평균으로 계산해요.</Text>
+            <Text style={styles.label}>주당 외출일수</Text>
+            <Text style={styles.hint}>1~7일 사이에서 골라 주세요. 학교·아르바이트·약속 등을 포함한 주간 평균이에요.</Text>
             <View style={styles.schoolRow}>
               <TextInput
-                accessibilityLabel="주당 등교일수"
-                value={values.schoolDaysPerWeek}
-                onChangeText={(value) => update("schoolDaysPerWeek", value)}
-                placeholder="예: 5"
+                accessibilityLabel="주당 외출일수"
+                value={values.outingDaysPerWeek}
+                onChangeText={(value) => update("outingDaysPerWeek", value.replace(/\D/g, "").slice(0, 1))}
+                placeholder="예: 5일"
                 keyboardType="number-pad"
+                maxLength={1}
                 style={styles.schoolInput}
               />
               <Text style={styles.unit}>일 / 주</Text>
             </View>
-            {errors.schoolDaysPerWeek ? <Text accessibilityRole="alert" style={styles.error}>{errors.schoolDaysPerWeek}</Text> : null}
+            {errors.outingDaysPerWeek ? <Text accessibilityRole="alert" style={styles.error}>{errors.outingDaysPerWeek}</Text> : null}
           </View>
 
           <View style={[styles.field, styles.priorityField]}>
             <View style={styles.priorityHeading}>
-              <Text style={styles.label}>지출 우선순위</Text>
-              <Text style={styles.hint}>1위 50% · 2위 30% · 3위 20%</Text>
+              <Text style={styles.label}>분야별 예산 비율</Text>
+              <Text style={styles.hint}>슬라이더를 움직여 조절해요. 비율은 0%까지 낮출 수 있고, 합계는 항상 100%예요.</Text>
             </View>
             {CATEGORIES.map((category) => (
               <View key={category} style={styles.priorityRow}>
-                <Text style={styles.categoryName}>{CATEGORY_LABELS[category]}</Text>
-                <View style={styles.rankChoices}>
-                  {([1, 2, 3] as const).map((rank) => {
-                    const selected = priorities[category] === rank;
-                    return (
-                      <Pressable
-                        key={rank}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${CATEGORY_LABELS[category]} ${rank}위, ${ratio(rank)}`}
-                        accessibilityState={{ selected }}
-                        onPress={() => setPriorities((current) => swapPriority(current, category, rank))}
-                        style={[styles.rankButton, selected && styles.rankButtonSelected]}
-                      >
-                        <Text style={[styles.rankText, selected && styles.rankTextSelected]}>{rank}위</Text>
-                        <Text style={[styles.rankRatio, selected && styles.rankTextSelected]}>{ratio(rank)}</Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={styles.priorityRowTop}>
+                  <View>
+                    <Text style={styles.categoryName}>{CATEGORY_LABELS[category]}</Text>
+                    <Text style={styles.priorityRank}>{priorities[category] === 0 ? "배정 없음" : `${[...CATEGORIES].sort((a, b) => priorities[b] - priorities[a]).indexOf(category) + 1}순위`}</Text>
+                  </View>
+                  <Text style={styles.priorityPercent}>{priorities[category]}%</Text>
                 </View>
+                <Slider
+                  accessibilityLabel={`${CATEGORY_LABELS[category]} 예산 비율`}
+                  accessibilityValue={{ min: 0, max: 100, now: priorities[category], text: `${priorities[category]}%` }}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={priorities[category]}
+                  aria-valuetext={`${priorities[category]}%`}
+                  focusable={Platform.OS === "web" ? true : undefined}
+                  minimumValue={0}
+                  maximumValue={100}
+                  step={1}
+                  value={priorities[category]}
+                  onValueChange={(value) => setPriorities((current) => setPriorityPercent(current, category, value))}
+                  onKeyDown={Platform.OS === "web" ? (event) => {
+                    if (event.nativeEvent.altKey || event.nativeEvent.ctrlKey || event.nativeEvent.metaKey) return;
+                    const { key } = event.nativeEvent;
+                    const nextValue = key === "Home" ? 0
+                      : key === "End" ? 100
+                      : key === "ArrowLeft" || key === "ArrowDown" ? priorities[category] - 1
+                      : key === "ArrowRight" || key === "ArrowUp" ? priorities[category] + 1
+                      : null;
+                    if (nextValue === null) return;
+                    event.preventDefault();
+                    setPriorities((current) => setPriorityPercent(current, category, nextValue));
+                  } : undefined}
+                  minimumTrackTintColor={colors.accent}
+                  maximumTrackTintColor="#dfe5dc"
+                  thumbTintColor={colors.accent}
+                  style={styles.allocationSlider}
+                />
               </View>
             ))}
             {errors.priorities ? <Text accessibilityRole="alert" style={styles.error}>{errors.priorities}</Text> : null}
@@ -207,10 +218,22 @@ export default function InputScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.footer}>50·30·20 비율은 권장 예산이며, 필수 비용 충족을 보장하지 않아요.</Text>
+        <Text style={styles.footer}>한 분야의 비율을 바꾸면 나머지 분야가 자동 조정돼 합계 100%를 유지해요. 0%로도 설정할 수 있어요.</Text>
       </View>
     </ScrollView>
   );
+}
+
+export function generateMetadata(): Metadata {
+  const title = "생활비 계산기 | DAILY RUNWAY";
+  const description = "남은 생활비를 기준으로 식비·교통비·여가비 플랜을 세워요.";
+  const canonical = `${getSiteOrigin()}/`;
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { type: "website", locale: "ko_KR", url: canonical, title, description, siteName: "Daily Runway" },
+  };
 }
 
 const styles = StyleSheet.create({
@@ -253,14 +276,12 @@ const styles = StyleSheet.create({
   removeFixedButton: { alignSelf: "flex-end", paddingHorizontal: 8, paddingVertical: 7 },
   removeFixedText: { color: colors.muted, fontSize: 11 },
   priorityHeading: { marginBottom: 8 },
-  priorityRow: { minHeight: 62, borderTopWidth: 1, borderColor: colors.line, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  priorityRow: { borderTopWidth: 1, borderColor: colors.line, paddingTop: 12, paddingBottom: 6 },
+  priorityRowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   categoryName: { color: colors.ink, fontWeight: "600", fontSize: 14 },
-  rankChoices: { flexDirection: "row", gap: 8 },
-  rankButton: { width: 54, minHeight: 48, borderWidth: 1, borderColor: colors.line, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  rankButtonSelected: { borderColor: colors.accent, backgroundColor: colors.accent },
-  rankText: { color: colors.ink, fontSize: 12, fontWeight: "700" },
-  rankRatio: { color: colors.muted, fontSize: 10, marginTop: 2 },
-  rankTextSelected: { color: "#fff" },
+  priorityRank: { color: colors.muted, fontSize: 10, marginTop: 4 },
+  priorityPercent: { color: colors.accent, fontSize: 16, fontWeight: "700" },
+  allocationSlider: { width: "100%", height: 38, marginTop: 4 },
   primaryButton: { height: 60, paddingHorizontal: 18, borderRadius: 12, backgroundColor: colors.ink, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   primaryButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   buttonArrow: { color: "#fff", fontSize: 20 },

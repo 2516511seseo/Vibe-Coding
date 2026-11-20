@@ -6,7 +6,8 @@
     "orientation": "portrait",
     "scheme": "daily-runway",
     "userInterfaceStyle": "light",
-    "web": { "output": "server" },
+    "web": { "output": "static" },
+    "extra": { "siteUrl": "https://daily-runway.ai.studio" },
     "plugins": ["expo-router"]
   }
 }
